@@ -495,12 +495,15 @@ export class ShellExecutionService {
       baseEnv[key] = sourceEnv[key];
     }
 
+    const isTrusted = baseEnv['GEMINI_CLI_TRUST_WORKSPACE'] === 'true';
     let gitConfigCount = parseInt(baseEnv['GIT_CONFIG_COUNT'] || '0', 10);
     const devNullPath = os.platform() === 'win32' ? 'NUL' : '/dev/null';
 
-    baseEnv['GIT_CONFIG_GLOBAL'] = devNullPath;
-    baseEnv['GIT_CONFIG_SYSTEM'] = devNullPath;
-    baseEnv['GIT_CONFIG_NOSYSTEM'] = '1';
+    if (!isTrusted) {
+      baseEnv['GIT_CONFIG_GLOBAL'] = devNullPath;
+      baseEnv['GIT_CONFIG_SYSTEM'] = devNullPath;
+      baseEnv['GIT_CONFIG_NOSYSTEM'] = '1';
+    }
 
     sanitizationConfig.allowedEnvironmentVariables.push(
       'GIT_CONFIG_COUNT',
@@ -509,15 +512,21 @@ export class ShellExecutionService {
       'GIT_CONFIG_NOSYSTEM',
     );
 
-    const defaultGitOverrides: Array<[string, string]> = [
-      ['credential.helper', ''],
-      ['core.fsmonitor', ''],
-      ['core.hooksPath', ''],
-      ['core.sshCommand', ''],
+    const defaultGitOverrides: Array<[string, string]> = [];
+    if (!isTrusted) {
+      defaultGitOverrides.push(
+        ['credential.helper', ''],
+        ['core.fsmonitor', ''],
+        ['core.hooksPath', ''],
+        ['core.sshCommand', ''],
+      );
+    }
+    // Always override pagers/editors to prevent interactive shell hangs in headless modes
+    defaultGitOverrides.push(
       ['core.pager', 'cat'],
       ['core.editor', ''],
       ['sequence.editor', ''],
-    ];
+    );
 
     for (const [overrideKey, overrideVal] of defaultGitOverrides) {
       const keyVar = `GIT_CONFIG_KEY_${gitConfigCount}`;

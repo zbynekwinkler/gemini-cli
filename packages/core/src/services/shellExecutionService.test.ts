@@ -2264,6 +2264,64 @@ describe('ShellExecutionService environment variables', () => {
     vi.unstubAllEnvs();
   });
 
+  it('should bypass strict git config and system isolation in trusted workspaces', async () => {
+    vi.resetModules();
+    vi.stubEnv('GEMINI_CLI_TRUST_WORKSPACE', 'true');
+    vi.stubEnv('GIT_CONFIG_COUNT', '2');
+    vi.stubEnv('GIT_CONFIG_KEY_0', 'core.editor');
+    vi.stubEnv('GIT_CONFIG_VALUE_0', 'vim');
+    vi.stubEnv('GIT_CONFIG_KEY_1', 'pull.rebase');
+    vi.stubEnv('GIT_CONFIG_VALUE_1', 'true');
+
+    const { ShellExecutionService } = await import(
+      './shellExecutionService.js'
+    );
+
+    mockGetPty.mockResolvedValue(null); // Force child_process fallback
+    await ShellExecutionService.execute(
+      'test-cp-trusted-git',
+      '/',
+      vi.fn(),
+      new AbortController().signal,
+      false, // non-interactive
+      shellExecutionConfig,
+    );
+
+    expect(mockCpSpawn).toHaveBeenCalled();
+    const cpEnv = mockCpSpawn.mock.calls[0][2].env;
+
+    // Strict config isolation paths should NOT be set
+    expect(cpEnv).not.toHaveProperty('GIT_CONFIG_GLOBAL');
+    expect(cpEnv).not.toHaveProperty('GIT_CONFIG_SYSTEM');
+
+    // Existing values should be preserved
+    expect(cpEnv).toHaveProperty('GIT_CONFIG_KEY_0', 'core.editor');
+    expect(cpEnv).toHaveProperty('GIT_CONFIG_VALUE_0', 'vim');
+    expect(cpEnv).toHaveProperty('GIT_CONFIG_KEY_1', 'pull.rebase');
+    expect(cpEnv).toHaveProperty('GIT_CONFIG_VALUE_1', 'true');
+
+    // Only the 3 pager/editor overrides should be appended at index 2..4 (total 5)
+    expect(cpEnv).toHaveProperty('GIT_CONFIG_COUNT', '5');
+    expect(cpEnv).toHaveProperty('GIT_CONFIG_KEY_2', 'core.pager');
+    expect(cpEnv).toHaveProperty('GIT_CONFIG_VALUE_2', 'cat');
+    expect(cpEnv).toHaveProperty('GIT_CONFIG_KEY_3', 'core.editor');
+    expect(cpEnv).toHaveProperty('GIT_CONFIG_VALUE_3', '');
+    expect(cpEnv).toHaveProperty('GIT_CONFIG_KEY_4', 'sequence.editor');
+    expect(cpEnv).toHaveProperty('GIT_CONFIG_VALUE_4', '');
+
+    // credential.helper and other security overrides should NOT be appended
+    for (let i = 0; i < 5; i++) {
+      expect(cpEnv[`GIT_CONFIG_KEY_${i}`]).not.toBe('credential.helper');
+    }
+
+    // Ensure child_process exits
+    mockChildProcess.emit('exit', 0, null);
+    mockChildProcess.emit('close', 0, null);
+    await new Promise(process.nextTick);
+
+    vi.unstubAllEnvs();
+  });
+
   it('should include headless git and gh environment variables in interactive fallback mode', async () => {
     vi.resetModules();
     vi.stubEnv('GIT_TERMINAL_PROMPT', undefined);
