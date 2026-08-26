@@ -12,6 +12,7 @@ export function getSafeGitEnv(
   baseEnv: Record<string, string | undefined> = process.env,
 ): Record<string, string | undefined> {
   const devNullPath = process.platform === 'win32' ? 'NUL' : '/dev/null';
+  const isTrusted = baseEnv['GEMINI_CLI_TRUST_WORKSPACE'] === 'true';
 
   // Strip pre-existing GIT_CONFIG_* and GIT_CONFIG_PARAMETERS variables to prevent environment pollution
   const cleanedEnv: Record<string, string | undefined> = {};
@@ -21,27 +22,40 @@ export function getSafeGitEnv(
     }
   }
 
-  return {
+  const safeEnv: Record<string, string | undefined> = {
     ...cleanedEnv,
-    GIT_CONFIG_GLOBAL: devNullPath,
-    GIT_CONFIG_SYSTEM: devNullPath,
-    GIT_CONFIG_NOSYSTEM: '1',
-    GIT_CONFIG_COUNT: '8',
-    GIT_CONFIG_KEY_0: 'credential.helper',
-    GIT_CONFIG_VALUE_0: '',
-    GIT_CONFIG_KEY_1: 'core.fsmonitor',
-    GIT_CONFIG_VALUE_1: '',
-    GIT_CONFIG_KEY_2: 'core.hooksPath',
-    GIT_CONFIG_VALUE_2: '',
-    GIT_CONFIG_KEY_3: 'core.sshCommand',
-    GIT_CONFIG_VALUE_3: '',
-    GIT_CONFIG_KEY_4: 'core.pager',
-    GIT_CONFIG_VALUE_4: 'cat',
-    GIT_CONFIG_KEY_5: 'core.editor',
-    GIT_CONFIG_VALUE_5: '',
-    GIT_CONFIG_KEY_6: 'sequence.editor',
-    GIT_CONFIG_VALUE_6: '',
   };
+
+  if (!isTrusted) {
+    safeEnv['GIT_CONFIG_GLOBAL'] = devNullPath;
+    safeEnv['GIT_CONFIG_SYSTEM'] = devNullPath;
+    safeEnv['GIT_CONFIG_NOSYSTEM'] = '1';
+    safeEnv['GIT_CONFIG_COUNT'] = '7';
+    safeEnv['GIT_CONFIG_KEY_0'] = 'credential.helper';
+    safeEnv['GIT_CONFIG_VALUE_0'] = '';
+    safeEnv['GIT_CONFIG_KEY_1'] = 'core.fsmonitor';
+    safeEnv['GIT_CONFIG_VALUE_1'] = '';
+    safeEnv['GIT_CONFIG_KEY_2'] = 'core.hooksPath';
+    safeEnv['GIT_CONFIG_VALUE_2'] = '';
+    safeEnv['GIT_CONFIG_KEY_3'] = 'core.sshCommand';
+    safeEnv['GIT_CONFIG_VALUE_3'] = '';
+    safeEnv['GIT_CONFIG_KEY_4'] = 'core.pager';
+    safeEnv['GIT_CONFIG_VALUE_4'] = 'cat';
+    safeEnv['GIT_CONFIG_KEY_5'] = 'core.editor';
+    safeEnv['GIT_CONFIG_VALUE_5'] = '';
+    safeEnv['GIT_CONFIG_KEY_6'] = 'sequence.editor';
+    safeEnv['GIT_CONFIG_VALUE_6'] = '';
+  } else {
+    safeEnv['GIT_CONFIG_COUNT'] = '3';
+    safeEnv['GIT_CONFIG_KEY_0'] = 'core.pager';
+    safeEnv['GIT_CONFIG_VALUE_0'] = 'cat';
+    safeEnv['GIT_CONFIG_KEY_1'] = 'core.editor';
+    safeEnv['GIT_CONFIG_VALUE_1'] = '';
+    safeEnv['GIT_CONFIG_KEY_2'] = 'sequence.editor';
+    safeEnv['GIT_CONFIG_VALUE_2'] = '';
+  }
+
+  return safeEnv;
 }
 
 /**
