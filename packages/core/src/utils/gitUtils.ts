@@ -41,8 +41,6 @@ export function getSafeGitEnv(
     GIT_CONFIG_VALUE_5: '',
     GIT_CONFIG_KEY_6: 'sequence.editor',
     GIT_CONFIG_VALUE_6: '',
-    GIT_CONFIG_KEY_7: 'diff.external',
-    GIT_CONFIG_VALUE_7: '',
   };
 }
 
