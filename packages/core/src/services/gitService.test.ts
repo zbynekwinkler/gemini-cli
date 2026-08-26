@@ -37,6 +37,7 @@ const hoistedMockRaw = vi.hoisted(() => vi.fn());
 const hoistedMockAdd = vi.hoisted(() => vi.fn());
 const hoistedMockCommit = vi.hoisted(() => vi.fn());
 const hoistedMockStatus = vi.hoisted(() => vi.fn());
+const hoistedMockAddConfig = vi.hoisted(() => vi.fn());
 vi.mock('simple-git', () => ({
   simpleGit: hoistedMockSimpleGit.mockImplementation(() => ({
     checkIsRepo: hoistedMockCheckIsRepo,
@@ -46,6 +47,7 @@ vi.mock('simple-git', () => ({
     commit: hoistedMockCommit,
     status: hoistedMockStatus,
     env: hoistedMockEnv,
+    addConfig: hoistedMockAddConfig,
   })),
   CheckRepoActions: { IS_REPO_ROOT: 'is-repo-root' },
 }));
@@ -115,6 +117,7 @@ describe('GitService', () => {
       add: hoistedMockAdd,
       commit: hoistedMockCommit,
       status: hoistedMockStatus,
+      addConfig: hoistedMockAddConfig,
     }));
     hoistedMockSimpleGit.mockImplementation(() => ({
       checkIsRepo: hoistedMockCheckIsRepo,
@@ -124,6 +127,7 @@ describe('GitService', () => {
       commit: hoistedMockCommit,
       status: hoistedMockStatus,
       env: hoistedMockEnv,
+      addConfig: hoistedMockAddConfig,
     }));
     hoistedMockCheckIsRepo.mockResolvedValue(false);
     hoistedMockInit.mockResolvedValue(undefined);
@@ -417,6 +421,22 @@ describe('GitService', () => {
         const callArgs = hoistedMockEnv.mock.calls[0][0];
         expect(callArgs.GIT_CONFIG_GLOBAL).not.toBe('/user/global/config');
         expect(callArgs.GIT_CONFIG_SYSTEM).not.toBe('/user/system/config');
+      });
+
+      it('should NOT override GIT_CONFIG environment variables when workspace is trusted', async () => {
+        vi.stubEnv('GEMINI_CLI_TRUST_WORKSPACE', 'true');
+        const service = new GitService(projectRoot, storage);
+        await service.setupShadowGitRepository();
+
+        const expectedConfigPath = path.join(repoDir, '.gitconfig');
+        const expectedSystemPath = path.join(
+          repoDir,
+          '.gitconfig_system_empty',
+        );
+
+        const callArgs = hoistedMockEnv.mock.calls[0][0];
+        expect(callArgs.GIT_CONFIG_GLOBAL).not.toBe(expectedConfigPath);
+        expect(callArgs.GIT_CONFIG_SYSTEM).not.toBe(expectedSystemPath);
       });
     });
 
