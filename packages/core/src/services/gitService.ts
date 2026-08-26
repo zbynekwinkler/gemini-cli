@@ -100,9 +100,8 @@ export class GitService {
   }
 
   private getShadowRepoEnv(repoDir: string) {
-    const gitConfigPath = path.join(repoDir, '.gitconfig');
-    const systemConfigPath = path.join(repoDir, '.gitconfig_system_empty');
-    return {
+    const isTrusted = process.env['GEMINI_CLI_TRUST_WORKSPACE'] === 'true';
+    const env = {
       ...getSafeGitEnv(
         sanitizeEnvironment(
           process.env,
@@ -111,9 +110,6 @@ export class GitService {
           }),
         ),
       ),
-      // Prevent git from using the user's global git config.
-      GIT_CONFIG_GLOBAL: gitConfigPath,
-      GIT_CONFIG_SYSTEM: systemConfigPath,
       // Ensure we don't inherit isolation-breaking variables from the user environment.
       GIT_DIR: undefined,
       GIT_WORK_TREE: undefined,
@@ -125,6 +121,18 @@ export class GitService {
       GIT_COMMITTER_NAME: SHADOW_REPO_AUTHOR_NAME,
       GIT_COMMITTER_EMAIL: SHADOW_REPO_AUTHOR_EMAIL,
     };
+
+    if (!isTrusted) {
+      // Prevent git from using the user's global git config in untrusted environments.
+      const gitConfigPath = path.join(repoDir, '.gitconfig');
+      const systemConfigPath = path.join(repoDir, '.gitconfig_system_empty');
+      Object.assign(env, {
+        GIT_CONFIG_GLOBAL: gitConfigPath,
+        GIT_CONFIG_SYSTEM: systemConfigPath,
+      });
+    }
+
+    return env;
   }
 
   /**
@@ -134,16 +142,16 @@ export class GitService {
   async setupShadowGitRepository() {
     const repoDir = this.getHistoryDir();
     const gitConfigPath = path.join(repoDir, '.gitconfig');
+    const systemConfigPath = path.join(repoDir, '.gitconfig_system_empty');
 
     await fs.mkdir(repoDir, { recursive: true });
 
-    // We don't want to inherit the user's name, email, or gpg signing
-    // preferences for the shadow repository, so we create a dedicated gitconfig.
+    // Always prepare empty system config and backup gitconfig for safety in untrusted environments
     const gitConfigContent = `[user]\n  name = ${SHADOW_REPO_AUTHOR_NAME}\n  email = ${SHADOW_REPO_AUTHOR_EMAIL}\n[commit]\n  gpgsign = false\n`;
     await fs.writeFile(gitConfigPath, gitConfigContent);
+    await fs.writeFile(systemConfigPath, '');
 
     const shadowRepoEnv = this.getShadowRepoEnv(repoDir);
-    await fs.writeFile(shadowRepoEnv.GIT_CONFIG_SYSTEM, '');
     const repo = simpleGit(repoDir, SHADOW_REPO_GIT_OPTIONS).env(shadowRepoEnv);
     let isRepoDefined = false;
     try {
@@ -160,7 +168,14 @@ export class GitService {
       await repo.init(false, {
         '--initial-branch': 'main',
       });
+    }
 
+    // Explicitly configure local repository settings to guarantee GPG sign bypass and custom identity
+    await repo.addConfig('commit.gpgsign', 'false');
+    await repo.addConfig('user.name', SHADOW_REPO_AUTHOR_NAME);
+    await repo.addConfig('user.email', SHADOW_REPO_AUTHOR_EMAIL);
+
+    if (!isRepoDefined) {
       await repo.commit('Initial commit', { '--allow-empty': null });
     }
 
