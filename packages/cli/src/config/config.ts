@@ -616,6 +616,12 @@ export async function loadCliConfig(
       query: argv.query,
     })?.isTrusted ?? false;
 
+  if (trustedFolder) {
+    process.env['GEMINI_CLI_TRUST_WORKSPACE'] = 'true';
+  } else {
+    process.env['GEMINI_CLI_TRUST_WORKSPACE'] = 'false';
+  }
+
   // Set the context filename in the server's memory file helpers before loading memory
   // TODO(b/343434939): This is a bit of a hack. The contextFileName should ideally be passed
   // directly to the Config constructor in core, and have core handle setGeminiMdFilename.
