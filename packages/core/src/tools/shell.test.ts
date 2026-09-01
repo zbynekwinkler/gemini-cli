@@ -1472,22 +1472,50 @@ EOF`;
   });
 
   describe('command injection detection', () => {
-    it('should block $() command substitution', async () => {
+    it('should allow $() command substitution', async () => {
+      mockShellExecutionService.mockImplementation((_cmd, _cwd, _callback) => ({
+        pid: 12345,
+        result: Promise.resolve({
+          output: 'substituted',
+          rawOutput: Buffer.from('substituted'),
+          exitCode: 0,
+          signal: null,
+          error: null,
+          aborted: false,
+          pid: 12345,
+          executionMethod: 'child_process',
+          backgrounded: false,
+        }),
+      }));
       const tool = new ShellTool(mockConfig, createMockMessageBus());
       const invocation = tool.build({ command: 'echo $(whoami)' });
       const result = await invocation.execute({
         abortSignal: new AbortController().signal,
       });
-      expect(result.returnDisplay).toContain('Blocked');
+      expect(result.returnDisplay).not.toContain('Blocked');
     });
 
-    it('should block backtick command substitution', async () => {
+    it('should allow backtick command substitution', async () => {
+      mockShellExecutionService.mockImplementation((_cmd, _cwd, _callback) => ({
+        pid: 12345,
+        result: Promise.resolve({
+          output: 'substituted',
+          rawOutput: Buffer.from('substituted'),
+          exitCode: 0,
+          signal: null,
+          error: null,
+          aborted: false,
+          pid: 12345,
+          executionMethod: 'child_process',
+          backgrounded: false,
+        }),
+      }));
       const tool = new ShellTool(mockConfig, createMockMessageBus());
       const invocation = tool.build({ command: 'echo `whoami`' });
       const result = await invocation.execute({
         abortSignal: new AbortController().signal,
       });
-      expect(result.returnDisplay).toContain('Blocked');
+      expect(result.returnDisplay).not.toContain('Blocked');
     });
 
     it('should allow normal commands without substitution', async () => {
@@ -1561,22 +1589,50 @@ EOF`;
       expect(result.returnDisplay).not.toContain('Blocked');
     });
 
-    it('should block $() inside double quotes', async () => {
+    it('should allow $() inside double quotes', async () => {
+      mockShellExecutionService.mockImplementation((_cmd, _cwd, _callback) => ({
+        pid: 12345,
+        result: Promise.resolve({
+          output: 'substituted',
+          rawOutput: Buffer.from('substituted'),
+          exitCode: 0,
+          signal: null,
+          error: null,
+          aborted: false,
+          pid: 12345,
+          executionMethod: 'child_process',
+          backgrounded: false,
+        }),
+      }));
       const tool = new ShellTool(mockConfig, createMockMessageBus());
       const invocation = tool.build({ command: 'echo "$(whoami)"' });
       const result = await invocation.execute({
         abortSignal: new AbortController().signal,
       });
-      expect(result.returnDisplay).toContain('Blocked');
+      expect(result.returnDisplay).not.toContain('Blocked');
     });
 
-    it('should block >() process substitution', async () => {
+    it('should allow >() process substitution', async () => {
+      mockShellExecutionService.mockImplementation((_cmd, _cwd, _callback) => ({
+        pid: 12345,
+        result: Promise.resolve({
+          output: 'substituted',
+          rawOutput: Buffer.from('substituted'),
+          exitCode: 0,
+          signal: null,
+          error: null,
+          aborted: false,
+          pid: 12345,
+          executionMethod: 'child_process',
+          backgrounded: false,
+        }),
+      }));
       const tool = new ShellTool(mockConfig, createMockMessageBus());
       const invocation = tool.build({ command: 'echo >(whoami)' });
       const result = await invocation.execute({
         abortSignal: new AbortController().signal,
       });
-      expect(result.returnDisplay).toContain('Blocked');
+      expect(result.returnDisplay).not.toContain('Blocked');
     });
 
     it('should allow $() inside single quotes', async () => {
@@ -1603,24 +1659,52 @@ EOF`;
       });
       expect(result.returnDisplay).not.toContain('Blocked');
     });
-    it('should block PowerShell @() array subexpression', async () => {
+    it('should allow PowerShell @() array subexpression', async () => {
       mockPlatform.mockReturnValue('win32');
+      mockShellExecutionService.mockImplementation((_cmd, _cwd, _callback) => ({
+        pid: 12345,
+        result: Promise.resolve({
+          output: 'substituted',
+          rawOutput: Buffer.from('substituted'),
+          exitCode: 0,
+          signal: null,
+          error: null,
+          aborted: false,
+          pid: 12345,
+          executionMethod: 'child_process',
+          backgrounded: false,
+        }),
+      }));
       const tool = new ShellTool(mockConfig, createMockMessageBus());
       const invocation = tool.build({ command: 'echo @(whoami)' });
       const result = await invocation.execute({
         abortSignal: new AbortController().signal,
       });
-      expect(result.returnDisplay).toContain('Blocked');
+      expect(result.returnDisplay).not.toContain('Blocked');
     });
 
-    it('should block PowerShell $() subexpression', async () => {
+    it('should allow PowerShell $() subexpression', async () => {
       mockPlatform.mockReturnValue('win32');
+      mockShellExecutionService.mockImplementation((_cmd, _cwd, _callback) => ({
+        pid: 12345,
+        result: Promise.resolve({
+          output: 'substituted',
+          rawOutput: Buffer.from('substituted'),
+          exitCode: 0,
+          signal: null,
+          error: null,
+          aborted: false,
+          pid: 12345,
+          executionMethod: 'child_process',
+          backgrounded: false,
+        }),
+      }));
       const tool = new ShellTool(mockConfig, createMockMessageBus());
       const invocation = tool.build({ command: 'echo $(whoami)' });
       const result = await invocation.execute({
         abortSignal: new AbortController().signal,
       });
-      expect(result.returnDisplay).toContain('Blocked');
+      expect(result.returnDisplay).not.toContain('Blocked');
     });
 
     it('should allow PowerShell single quoted strings', async () => {
@@ -1694,13 +1778,27 @@ EOF`;
       expect(result.returnDisplay).not.toContain('Blocked');
     });
 
-    it('should block process substitution without quotes', async () => {
+    it('should allow process substitution without quotes', async () => {
+      mockShellExecutionService.mockImplementation((_cmd, _cwd, _callback) => ({
+        pid: 12345,
+        result: Promise.resolve({
+          output: 'substituted',
+          rawOutput: Buffer.from('substituted'),
+          exitCode: 0,
+          signal: null,
+          error: null,
+          aborted: false,
+          pid: 12345,
+          executionMethod: 'child_process',
+          backgrounded: false,
+        }),
+      }));
       const tool = new ShellTool(mockConfig, createMockMessageBus());
       const invocation = tool.build({ command: 'echo <(whoami)' });
       const result = await invocation.execute({
         abortSignal: new AbortController().signal,
       });
-      expect(result.returnDisplay).toContain('Blocked');
+      expect(result.returnDisplay).not.toContain('Blocked');
     });
 
     it('should allow escaped $() outside double quotes', async () => {
@@ -1749,22 +1847,50 @@ EOF`;
       expect(result.returnDisplay).not.toContain('Blocked');
     });
 
-    it('should block <() process substitution without quotes', async () => {
+    it('should allow <() process substitution without quotes', async () => {
+      mockShellExecutionService.mockImplementation((_cmd, _cwd, _callback) => ({
+        pid: 12345,
+        result: Promise.resolve({
+          output: 'substituted',
+          rawOutput: Buffer.from('substituted'),
+          exitCode: 0,
+          signal: null,
+          error: null,
+          aborted: false,
+          pid: 12345,
+          executionMethod: 'child_process',
+          backgrounded: false,
+        }),
+      }));
       const tool = new ShellTool(mockConfig, createMockMessageBus());
       const invocation = tool.build({ command: 'echo <(whoami)' });
       const result = await invocation.execute({
         abortSignal: new AbortController().signal,
       });
-      expect(result.returnDisplay).toContain('Blocked');
+      expect(result.returnDisplay).not.toContain('Blocked');
     });
-    it('should block PowerShell bare () grouping operator', async () => {
+    it('should allow PowerShell bare () grouping operator', async () => {
       mockPlatform.mockReturnValue('win32');
+      mockShellExecutionService.mockImplementation((_cmd, _cwd, _callback) => ({
+        pid: 12345,
+        result: Promise.resolve({
+          output: 'substituted',
+          rawOutput: Buffer.from('substituted'),
+          exitCode: 0,
+          signal: null,
+          error: null,
+          aborted: false,
+          pid: 12345,
+          executionMethod: 'child_process',
+          backgrounded: false,
+        }),
+      }));
       const tool = new ShellTool(mockConfig, createMockMessageBus());
       const invocation = tool.build({ command: 'echo (whoami)' });
       const result = await invocation.execute({
         abortSignal: new AbortController().signal,
       });
-      expect(result.returnDisplay).toContain('Blocked');
+      expect(result.returnDisplay).not.toContain('Blocked');
     });
 
     it('should allow escaped $() inside double quotes', async () => {

@@ -40,7 +40,6 @@ import {
   stripShellWrapper,
   parseCommandDetails,
   hasRedirection,
-  detectCommandSubstitution,
   normalizeCommand,
   escapeShellArg,
 } from '../utils/shell-utils.js';
@@ -464,18 +463,6 @@ export class ShellToolInvocation extends BaseToolInvocation<
       setExecutionIdCallback,
     } = options;
     const strippedCommand = stripShellWrapper(this.params.command);
-
-    if (detectCommandSubstitution(strippedCommand)) {
-      return {
-        llmContent:
-          'Command injection detected: command substitution syntax ' +
-          '($(), backticks, <() or >()) found in command arguments. ' +
-          'On PowerShell, @() array subexpressions and $() subexpressions are also blocked. ' +
-          'This is a security risk and the command was blocked.',
-        returnDisplay:
-          'Blocked: command substitution detected in shell command.',
-      };
-    }
 
     if (signal.aborted) {
       return {
