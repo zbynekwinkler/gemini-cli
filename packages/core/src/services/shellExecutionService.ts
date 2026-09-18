@@ -524,8 +524,8 @@ export class ShellExecutionService {
     // Always override pagers/editors to prevent interactive shell hangs in headless modes
     defaultGitOverrides.push(
       ['core.pager', 'cat'],
-      ['core.editor', ''],
-      ['sequence.editor', ''],
+      ['core.editor', 'true'],
+      ['sequence.editor', 'true'],
     );
 
     for (const [overrideKey, overrideVal] of defaultGitOverrides) {

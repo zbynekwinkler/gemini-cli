@@ -42,17 +42,17 @@ export function getSafeGitEnv(
     safeEnv['GIT_CONFIG_KEY_4'] = 'core.pager';
     safeEnv['GIT_CONFIG_VALUE_4'] = 'cat';
     safeEnv['GIT_CONFIG_KEY_5'] = 'core.editor';
-    safeEnv['GIT_CONFIG_VALUE_5'] = '';
+    safeEnv['GIT_CONFIG_VALUE_5'] = 'true';
     safeEnv['GIT_CONFIG_KEY_6'] = 'sequence.editor';
-    safeEnv['GIT_CONFIG_VALUE_6'] = '';
+    safeEnv['GIT_CONFIG_VALUE_6'] = 'true';
   } else {
     safeEnv['GIT_CONFIG_COUNT'] = '3';
     safeEnv['GIT_CONFIG_KEY_0'] = 'core.pager';
     safeEnv['GIT_CONFIG_VALUE_0'] = 'cat';
     safeEnv['GIT_CONFIG_KEY_1'] = 'core.editor';
-    safeEnv['GIT_CONFIG_VALUE_1'] = '';
+    safeEnv['GIT_CONFIG_VALUE_1'] = 'true';
     safeEnv['GIT_CONFIG_KEY_2'] = 'sequence.editor';
-    safeEnv['GIT_CONFIG_VALUE_2'] = '';
+    safeEnv['GIT_CONFIG_VALUE_2'] = 'true';
   }
 
   return safeEnv;
