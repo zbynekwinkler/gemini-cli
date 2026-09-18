@@ -94,6 +94,7 @@ describe('GitService', () => {
   let storage: Storage;
 
   beforeEach(async () => {
+    vi.stubEnv('GEMINI_CLI_TRUST_WORKSPACE', 'false');
     testRootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'git-service-test-'));
     projectRoot = path.join(testRootDir, 'project');
     homedir = path.join(testRootDir, 'home');
@@ -141,6 +142,7 @@ describe('GitService', () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     if (testRootDir) {
       await fs.rm(testRootDir, { recursive: true, force: true });
     }
@@ -391,6 +393,7 @@ describe('GitService', () => {
 
     describe('GIT_CONFIG isolation', () => {
       beforeEach(() => {
+        vi.stubEnv('GEMINI_CLI_TRUST_WORKSPACE', 'false');
         vi.stubEnv('GIT_CONFIG_GLOBAL', '/user/global/config');
         vi.stubEnv('GIT_CONFIG_SYSTEM', '/user/system/config');
         hoistedMockCheckIsRepo.mockResolvedValue(false);

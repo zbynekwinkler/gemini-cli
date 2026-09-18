@@ -2197,6 +2197,7 @@ describe('ShellExecutionService environment variables', () => {
 
   it('should include headless git and gh environment variables in non-interactive mode and append git config safely', async () => {
     vi.resetModules();
+    vi.stubEnv('GEMINI_CLI_TRUST_WORKSPACE', 'false');
     vi.stubEnv('GIT_CONFIG_COUNT', '2');
     vi.stubEnv('GIT_CONFIG_KEY_0', 'core.editor');
     vi.stubEnv('GIT_CONFIG_VALUE_0', 'vim');
@@ -2252,9 +2253,9 @@ describe('ShellExecutionService environment variables', () => {
     expect(cpEnv).toHaveProperty('GIT_CONFIG_KEY_6', 'core.pager');
     expect(cpEnv).toHaveProperty('GIT_CONFIG_VALUE_6', 'cat');
     expect(cpEnv).toHaveProperty('GIT_CONFIG_KEY_7', 'core.editor');
-    expect(cpEnv).toHaveProperty('GIT_CONFIG_VALUE_7', '');
+    expect(cpEnv).toHaveProperty('GIT_CONFIG_VALUE_7', 'true');
     expect(cpEnv).toHaveProperty('GIT_CONFIG_KEY_8', 'sequence.editor');
-    expect(cpEnv).toHaveProperty('GIT_CONFIG_VALUE_8', '');
+    expect(cpEnv).toHaveProperty('GIT_CONFIG_VALUE_8', 'true');
 
     // Ensure child_process exits
     mockChildProcess.emit('exit', 0, null);
@@ -2305,9 +2306,9 @@ describe('ShellExecutionService environment variables', () => {
     expect(cpEnv).toHaveProperty('GIT_CONFIG_KEY_2', 'core.pager');
     expect(cpEnv).toHaveProperty('GIT_CONFIG_VALUE_2', 'cat');
     expect(cpEnv).toHaveProperty('GIT_CONFIG_KEY_3', 'core.editor');
-    expect(cpEnv).toHaveProperty('GIT_CONFIG_VALUE_3', '');
+    expect(cpEnv).toHaveProperty('GIT_CONFIG_VALUE_3', 'true');
     expect(cpEnv).toHaveProperty('GIT_CONFIG_KEY_4', 'sequence.editor');
-    expect(cpEnv).toHaveProperty('GIT_CONFIG_VALUE_4', '');
+    expect(cpEnv).toHaveProperty('GIT_CONFIG_VALUE_4', 'true');
 
     // credential.helper and other security overrides should NOT be appended
     for (let i = 0; i < 5; i++) {
