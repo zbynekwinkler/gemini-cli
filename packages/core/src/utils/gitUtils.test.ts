@@ -74,9 +74,25 @@ describe('gitUtils', () => {
       expect(safeEnv['GIT_CONFIG_KEY_4']).toBe('core.pager');
       expect(safeEnv['GIT_CONFIG_VALUE_4']).toBe('cat');
       expect(safeEnv['GIT_CONFIG_KEY_5']).toBe('core.editor');
-      expect(safeEnv['GIT_CONFIG_VALUE_5']).toBe('');
+      expect(safeEnv['GIT_CONFIG_VALUE_5']).toBe('true');
       expect(safeEnv['GIT_CONFIG_KEY_6']).toBe('sequence.editor');
-      expect(safeEnv['GIT_CONFIG_VALUE_6']).toBe('');
+      expect(safeEnv['GIT_CONFIG_VALUE_6']).toBe('true');
+    });
+
+    it('should set trusted workspace overrides and expected count', () => {
+      const safeEnv = getSafeGitEnv({
+        GEMINI_CLI_TRUST_WORKSPACE: 'true',
+      });
+      expect(safeEnv['GIT_CONFIG_NOSYSTEM']).toBeUndefined();
+      expect(safeEnv['GIT_CONFIG_GLOBAL']).toBeUndefined();
+      expect(safeEnv['GIT_CONFIG_SYSTEM']).toBeUndefined();
+      expect(safeEnv['GIT_CONFIG_COUNT']).toBe('3');
+      expect(safeEnv['GIT_CONFIG_KEY_0']).toBe('core.pager');
+      expect(safeEnv['GIT_CONFIG_VALUE_0']).toBe('cat');
+      expect(safeEnv['GIT_CONFIG_KEY_1']).toBe('core.editor');
+      expect(safeEnv['GIT_CONFIG_VALUE_1']).toBe('true');
+      expect(safeEnv['GIT_CONFIG_KEY_2']).toBe('sequence.editor');
+      expect(safeEnv['GIT_CONFIG_VALUE_2']).toBe('true');
     });
 
     it('should not configure diff.external to an empty string', () => {
