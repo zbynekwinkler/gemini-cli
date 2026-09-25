@@ -27,7 +27,6 @@ import { SCROLL_TO_ITEM_END } from '../shared/VirtualizedList.js';
 import { ACTIVE_SHELL_MAX_LINES } from '../../constants.js';
 import { calculateToolContentMaxLines } from '../../utils/toolLayoutUtils.js';
 import { SubagentProgressDisplay } from './SubagentProgressDisplay.js';
-import { isLockFile } from '../../utils/fileUtils.js';
 
 export interface ToolResultDisplayProps {
   resultDisplay: string | object | undefined;
@@ -42,18 +41,6 @@ export interface ToolResultDisplayProps {
 interface FileDiffResult {
   fileDiff: string;
   fileName: string;
-  isBuildFile?: boolean;
-}
-
-function isFileDiffResult(value: unknown): value is FileDiffResult {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'fileDiff' in value &&
-    typeof value.fileDiff === 'string' &&
-    'fileName' in value &&
-    typeof value.fileName === 'string'
-  );
 }
 
 export const ToolResultDisplay: React.FC<ToolResultDisplayProps> = ({
@@ -155,14 +142,19 @@ export const ToolResultDisplay: React.FC<ToolResultDisplayProps> = ({
           </Text>
         );
       }
-    } else if (isFileDiffResult(contentData)) {
+    } else if (
+      typeof contentData === 'object' &&
+      contentData !== null &&
+      'fileDiff' in contentData
+    ) {
       content = (
         <DiffRenderer
-          diffContent={contentData.fileDiff}
-          filename={contentData.fileName}
-          disableTruncation={
-            contentData.isBuildFile && !isLockFile(contentData.fileName)
+          diffContent={
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+            (contentData as FileDiffResult).fileDiff
           }
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+          filename={(contentData as FileDiffResult).fileName}
           availableTerminalHeight={availableHeight}
           terminalWidth={childWidth}
         />
