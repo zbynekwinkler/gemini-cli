@@ -89,10 +89,12 @@ function editBufferReducer(
       let isValidChar = false;
 
       if (action.isNumberType) {
-        isValidChar = /[0-9\-+.]/.test(ch);
+        isValidChar = /^[0-9\-+.]+$/.test(ch);
       } else {
-        isValidChar = ch.length === 1 && ch.charCodeAt(0) >= 32;
         ch = stripUnsafeCharacters(ch);
+        isValidChar =
+          ch.length >= 1 &&
+          Array.from(ch).every((c) => (c.codePointAt(0) ?? 0) >= 32);
       }
 
       if (!isValidChar || ch.length === 0) return state;
@@ -102,7 +104,7 @@ function editBufferReducer(
       return {
         ...state,
         buffer: before + ch + after,
-        cursorPos: state.cursorPos + 1,
+        cursorPos: state.cursorPos + cpLen(ch),
       };
     }
 

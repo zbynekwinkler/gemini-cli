@@ -168,4 +168,38 @@ describe('useEditBuffer', () => {
     );
     expect(result.current.editState.buffer).toBe('12.'); // Unchanged
   });
+
+  it('should support pasting multi-character strings', async () => {
+    const { result } = await renderHook(() =>
+      useInlineEditBuffer({ onCommit: mockOnCommit }),
+    );
+    act(() => result.current.startEditing('key', 'prefix-'));
+
+    act(() =>
+      result.current.editDispatch({
+        type: 'INSERT_CHAR',
+        char: 'pasted_text',
+        isNumberType: false,
+      }),
+    );
+    expect(result.current.editState.buffer).toBe('prefix-pasted_text');
+    expect(result.current.editState.cursorPos).toBe(18); // length of prefix-pasted_text (7 + 11 = 18)
+  });
+
+  it('should support pasting multi-character number strings', async () => {
+    const { result } = await renderHook(() =>
+      useInlineEditBuffer({ onCommit: mockOnCommit }),
+    );
+    act(() => result.current.startEditing('key', '10'));
+
+    act(() =>
+      result.current.editDispatch({
+        type: 'INSERT_CHAR',
+        char: '.5',
+        isNumberType: true,
+      }),
+    );
+    expect(result.current.editState.buffer).toBe('10.5');
+    expect(result.current.editState.cursorPos).toBe(4);
+  });
 });
