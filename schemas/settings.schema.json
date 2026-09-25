@@ -3230,6 +3230,12 @@
           "default": true,
           "type": "boolean"
         },
+        "ripgrepPath": {
+          "title": "Ripgrep Path",
+          "description": "Custom path to the ripgrep (rg) binary. If not specified, the bundled or system binary will be used.",
+          "markdownDescription": "Custom path to the ripgrep (rg) binary. If not specified, the bundled or system binary will be used.\n\n- Category: `Tools`\n- Requires restart: `yes`",
+          "type": "string"
+        },
         "truncateToolOutputThreshold": {
           "title": "Tool Output Truncation Threshold",
           "description": "Maximum characters to show when truncating large tool outputs. Set to 0 or negative to disable truncation.",
