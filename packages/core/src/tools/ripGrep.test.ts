@@ -12,6 +12,7 @@ import {
 } from './ripGrep.js';
 import type { GrepResult } from './tools.js';
 import path from 'node:path';
+import { debugLogger } from '../utils/debugLogger.js';
 import { isSubpath, resolveToRealPath } from '../utils/paths.js';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -1959,6 +1960,53 @@ describe('resolveRipgrepPath', () => {
         const resolvedPath = await resolveRipgrepPath();
         expect(resolvedPath).toBeNull();
       });
+    });
+  });
+
+  describe('with customPath configuration', () => {
+    it('should return customPath directly if it exists', async () => {
+      vi.mocked(fileExists).mockResolvedValue(true);
+      vi.mocked(resolveToRealPath).mockImplementation((p) => p);
+
+      const resolved = await resolveRipgrepPath('/my/custom/path/rg');
+      expect(resolved).toBe('/my/custom/path/rg');
+    });
+
+    it('should resolve and return relative customPath if it exists resolved', async () => {
+      vi.mocked(fileExists).mockImplementation(
+        async (p) => p === path.resolve('relative/rg'),
+      );
+      vi.mocked(resolveToRealPath).mockImplementation((p) => p);
+
+      const resolved = await resolveRipgrepPath('relative/rg');
+      expect(resolved).toBe(path.resolve('relative/rg'));
+    });
+
+    it('should resolve via resolveExecutable even if outside trusted paths when explicitly set', async () => {
+      vi.mocked(fileExists).mockImplementation(
+        async (p) => p === '/some/untrusted/system/path/rg',
+      );
+      vi.mocked(resolveExecutable).mockReturnValue(
+        '/some/untrusted/system/path/rg',
+      );
+      vi.mocked(resolveToRealPath).mockImplementation((p) => p);
+
+      const resolved = await resolveRipgrepPath('untrusted-rg');
+      expect(resolved).toBe('/some/untrusted/system/path/rg');
+    });
+
+    it('should warn and fall back if custom path cannot be found', async () => {
+      vi.mocked(fileExists).mockResolvedValue(false);
+      vi.mocked(resolveExecutable).mockReturnValue(undefined);
+      const warnSpy = vi.spyOn(debugLogger, 'warn');
+
+      const resolved = await resolveRipgrepPath('nonexistent-rg');
+      expect(resolved).toBeNull();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Custom ripgrep path "nonexistent-rg" was specified but could not be found.',
+        ),
+      );
     });
   });
 });

@@ -50,8 +50,27 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * Resolves the path to the ripgrep binary, either bundled or system-level.
  * Validates system binaries against trusted directories to prevent RCE.
  */
-export async function resolveRipgrepPath(): Promise<string | null> {
+export async function resolveRipgrepPath(
+  customPath?: string,
+): Promise<string | null> {
   try {
+    if (customPath) {
+      if (await fileExists(customPath)) {
+        return resolveToRealPath(customPath);
+      }
+      const resolved = path.resolve(customPath);
+      if (await fileExists(resolved)) {
+        return resolveToRealPath(resolved);
+      }
+      const systemExe = resolveExecutable(customPath);
+      if (systemExe && (await fileExists(systemExe))) {
+        return resolveToRealPath(systemExe);
+      }
+      debugLogger.warn(
+        `Custom ripgrep path "${customPath}" was specified but could not be found.`,
+      );
+    }
+
     const platform = os.platform();
     const arch = os.arch();
 

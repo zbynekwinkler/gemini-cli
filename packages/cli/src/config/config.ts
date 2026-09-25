@@ -1080,6 +1080,7 @@ export async function loadCliConfig(
     useTerminalBuffer: settings.ui?.terminalBuffer,
     useRenderProcess: settings.ui?.renderProcess,
     useRipgrep: settings.tools?.useRipgrep,
+    ripgrepPath: settings.tools?.ripgrepPath,
     enableInteractiveShell: settings.tools?.shell?.enableInteractiveShell,
     shellBackgroundCompletionBehavior: settings.tools?.shell
       ?.backgroundCompletionBehavior as string | undefined,

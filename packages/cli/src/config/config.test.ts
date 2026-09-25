@@ -2139,6 +2139,33 @@ describe('loadCliConfig useRipgrep', () => {
   });
 });
 
+describe('loadCliConfig ripgrepPath', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(os.homedir).mockReturnValue('/mock/home/user');
+    vi.stubEnv('GEMINI_API_KEY', 'test-api-key');
+    vi.spyOn(ExtensionManager.prototype, 'getExtensions').mockReturnValue([]);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it('should pass ripgrepPath from settings to config', async () => {
+    process.argv = ['node', 'script.js'];
+    const argv = await parseArguments(createTestMergedSettings());
+    const settings = createTestMergedSettings({
+      tools: { ripgrepPath: '/my/custom/rg' },
+    });
+
+    const config = await loadCliConfig(settings, 'test-session', argv);
+    expect((config as unknown as { ripgrepPath?: string }).ripgrepPath).toBe(
+      '/my/custom/rg',
+    );
+  });
+});
+
 describe('loadCliConfig directWebFetch', () => {
   beforeEach(() => {
     vi.resetAllMocks();

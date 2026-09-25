@@ -1748,6 +1748,16 @@ const SETTINGS_SCHEMA = {
           'Use ripgrep for file content search instead of the fallback implementation. Provides faster search performance.',
         showInDialog: true,
       },
+      ripgrepPath: {
+        type: 'string',
+        label: 'Ripgrep Path',
+        category: 'Tools',
+        requiresRestart: true,
+        default: undefined as string | undefined,
+        description:
+          'Custom path to the ripgrep (rg) binary. If not specified, the bundled or system binary will be used.',
+        showInDialog: true,
+      },
       truncateToolOutputThreshold: {
         type: 'number',
         label: 'Tool Output Truncation Threshold',
