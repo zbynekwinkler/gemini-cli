@@ -675,6 +675,7 @@ export interface ConfigParameters {
   useTerminalBuffer?: boolean;
   useRenderProcess?: boolean;
   useRipgrep?: boolean;
+  ripgrepPath?: string;
   enableInteractiveShell?: boolean;
   shellBackgroundCompletionBehavior?: string;
   skipNextSpeakerCheck?: boolean;
@@ -894,6 +895,7 @@ export class Config implements McpContext, AgentLoopContext {
   private readonly trustedFolder: boolean | undefined;
   private readonly directWebFetch: boolean;
   private readonly useRipgrep: boolean;
+  private readonly ripgrepPath?: string;
   private readonly enableInteractiveShell: boolean;
   private readonly shellBackgroundCompletionBehavior:
     | 'inject'
@@ -1270,6 +1272,7 @@ export class Config implements McpContext, AgentLoopContext {
     this.trustedFolder = params.trustedFolder;
     this.directWebFetch = params.directWebFetch ?? false;
     this.useRipgrep = params.useRipgrep ?? true;
+    this.ripgrepPath = params.ripgrepPath;
     this.useBackgroundColor = params.useBackgroundColor ?? true;
     this.useAlternateBuffer = params.useAlternateBuffer ?? false;
     this.useTerminalBuffer = params.useTerminalBuffer ?? false;
@@ -2202,7 +2205,7 @@ export class Config implements McpContext, AgentLoopContext {
    */
   async getRipgrepPath(): Promise<string | null> {
     if (!this._ripgrepPathPromise) {
-      this._ripgrepPathPromise = resolveRipgrepPath();
+      this._ripgrepPathPromise = resolveRipgrepPath(this.ripgrepPath);
     }
     return this._ripgrepPathPromise;
   }
