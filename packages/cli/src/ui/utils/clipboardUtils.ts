@@ -6,7 +6,7 @@
 
 import * as fs from 'node:fs/promises';
 import { createWriteStream, existsSync, statSync } from 'node:fs';
-import { execSync, spawn } from 'node:child_process';
+import { execSync, spawn, type ChildProcess } from 'node:child_process';
 import * as path from 'node:path';
 import {
   debugLogger,
@@ -30,6 +30,176 @@ export const IMAGE_EXTENSIONS = [
 
 /** Matches strings that start with a path prefix (/, ~, ., Windows drive letter, or UNC path) */
 const PATH_PREFIX_PATTERN = /^([/~.]|[a-zA-Z]:|\\\\)/;
+
+/**
+ * Checks whether the current runtime environment is Windows Subsystem for Linux (WSL).
+ */
+export function isWSL(): boolean {
+  if (process.platform !== 'linux') {
+    return false;
+  }
+  return Boolean(
+    process.env['WSL_DISTRO_NAME'] ||
+      process.env['WSLENV'] ||
+      process.env['WSL_INTEROP'],
+  );
+}
+
+let wslPowerShellPath: string | null = null;
+
+function getWslPowerShellPath(): string | null {
+  if (wslPowerShellPath !== null) {
+    return wslPowerShellPath;
+  }
+
+  const candidates = [
+    'powershell.exe',
+    'pwsh.exe',
+    '/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',
+    '/mnt/c/Program Files/PowerShell/7/pwsh.exe',
+    '/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      if (candidate.includes('/')) {
+        if (existsSync(candidate)) {
+          wslPowerShellPath = candidate;
+          return candidate;
+        }
+      } else {
+        execSync(`command -v ${candidate}`, { stdio: 'ignore' });
+        wslPowerShellPath = candidate;
+        return candidate;
+      }
+    } catch {
+      // Continue searching candidates
+    }
+  }
+
+  return null;
+}
+
+function runWslPowerShell(
+  psExecutable: string,
+  script: string,
+  timeoutMs = 5000,
+): Promise<{ stdout: string; stderr: string; code: number | null }> {
+  return new Promise((resolve) => {
+    let child: ChildProcess;
+    try {
+      child = spawn(
+        psExecutable,
+        ['-NoProfile', '-NonInteractive', '-Command', script],
+        { stdio: ['ignore', 'pipe', 'pipe'] },
+      );
+    } catch (e) {
+      debugLogger.debug(`Failed to spawn ${psExecutable}:`, e);
+      resolve({ stdout: '', stderr: String(e), code: 1 });
+      return;
+    }
+
+    if (!child) {
+      resolve({ stdout: '', stderr: 'Failed to spawn', code: 1 });
+      return;
+    }
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout?.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    child.stderr?.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    const timer = setTimeout(() => {
+      try {
+        child.kill();
+      } catch {
+        // ignore kill error
+      }
+      resolve({ stdout, stderr: 'Timeout', code: -1 });
+    }, timeoutMs);
+    timer.unref?.();
+
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      debugLogger.debug(`Error from ${psExecutable}:`, err);
+      resolve({ stdout, stderr: err.message, code: 1 });
+    });
+
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      resolve({ stdout, stderr, code });
+    });
+  });
+}
+
+/**
+ * Checks if the Windows clipboard contains an image from within WSL using PowerShell.
+ */
+async function checkWslClipboardForImage(): Promise<boolean> {
+  const psPath = getWslPowerShellPath();
+  if (!psPath) {
+    return false;
+  }
+  const script =
+    'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Clipboard]::ContainsImage()';
+  const { stdout, code } = await runWslPowerShell(psPath, script);
+  return code === 0 && stdout.trim() === 'True';
+}
+
+/**
+ * Saves clipboard content to a file in WSL using Windows PowerShell.
+ */
+async function saveFileFromWslClipboard(destination: string): Promise<boolean> {
+  const psPath = getWslPowerShellPath();
+  if (!psPath) {
+    return false;
+  }
+
+  const script = `
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+if ([System.Windows.Forms.Clipboard]::ContainsImage()) {
+  $img = [System.Windows.Forms.Clipboard]::GetImage()
+  $ms = New-Object System.IO.MemoryStream
+  $img.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
+  [Convert]::ToBase64String($ms.ToArray())
+}
+`;
+
+  const { stdout, code } = await runWslPowerShell(psPath, script);
+  if (code !== 0) {
+    return false;
+  }
+
+  const base64Data = stdout.trim();
+  if (!base64Data) {
+    return false;
+  }
+
+  try {
+    const buffer = Buffer.from(base64Data, 'base64');
+    if (buffer.length === 0) {
+      return false;
+    }
+    await fs.writeFile(destination, buffer);
+    const stats = await fs.stat(destination);
+    return stats.size > 0;
+  } catch (error) {
+    debugLogger.debug('Failed to save WSL clipboard image file:', error);
+    try {
+      await fs.unlink(destination);
+    } catch {
+      // ignore unlink error
+    }
+    return false;
+  }
+}
 
 // Track which tool works on Linux to avoid redundant checks/failures
 let linuxClipboardTool: 'wl-paste' | 'xclip' | null = null;
@@ -163,6 +333,9 @@ async function checkXclipForImage() {
  */
 export async function clipboardHasImage(): Promise<boolean> {
   if (process.platform === 'linux') {
+    if (isWSL() && (await checkWslClipboardForImage())) {
+      return true;
+    }
     const tool = getUserLinuxClipboardTool();
     if (tool === 'wl-paste') {
       if (await checkWlPasteForImage()) return true;
@@ -281,6 +454,14 @@ export async function saveClipboardImage(
 
     if (process.platform === 'linux') {
       const tempFilePath = path.join(tempDir, `clipboard-${timestamp}.png`);
+
+      if (isWSL()) {
+        const saved = await saveFileFromWslClipboard(tempFilePath);
+        if (saved) {
+          return tempFilePath;
+        }
+      }
+
       const tool = getUserLinuxClipboardTool();
 
       if (tool === 'wl-paste') {
