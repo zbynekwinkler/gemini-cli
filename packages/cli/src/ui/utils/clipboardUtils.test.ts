@@ -95,6 +95,9 @@ describe('clipboardUtils', () => {
     vi.resetAllMocks();
     originalEnv = process.env;
     process.env = { ...originalEnv };
+    delete process.env['WSL_DISTRO_NAME'];
+    delete process.env['WSLENV'];
+    delete process.env['WSL_INTEROP'];
 
     // Reset modules to clear internal state (linuxClipboardTool variable)
     vi.resetModules();
@@ -343,6 +346,171 @@ describe('clipboardUtils', () => {
       const result = await clipboardUtils.saveClipboardImage(mockTargetDir);
       expect(result).toBe(null);
       expect(spawn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('WSL Clipboard Support', () => {
+    const mockTargetDir = '/tmp/target';
+
+    const createMockWslProcess = (
+      stdoutData: string,
+      exitCode: number = 0,
+      shouldError = false,
+    ) => {
+      const child = new EventEmitter() as EventEmitter & {
+        stdout: EventEmitter;
+        stderr: EventEmitter;
+        kill: Mock;
+      };
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      child.kill = vi.fn();
+
+      setTimeout(() => {
+        if (shouldError) {
+          child.emit('error', new Error('PowerShell failed'));
+        } else {
+          if (stdoutData) {
+            child.stdout.emit('data', Buffer.from(stdoutData));
+          }
+          child.emit('close', exitCode);
+        }
+      }, 5);
+
+      return child;
+    };
+
+    beforeEach(() => {
+      mockPlatform('linux');
+      process.env['WSL_DISTRO_NAME'] = 'Ubuntu';
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.unlink).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+      vi.mocked(fs.stat).mockResolvedValue(MOCK_FILE_STATS);
+    });
+
+    describe('isWSL', () => {
+      it('should return true when WSL_DISTRO_NAME is set on Linux', () => {
+        mockPlatform('linux');
+        process.env['WSL_DISTRO_NAME'] = 'Ubuntu';
+        expect(clipboardUtils.isWSL()).toBe(true);
+      });
+
+      it('should return true when WSL_INTEROP is set on Linux', () => {
+        mockPlatform('linux');
+        delete process.env['WSL_DISTRO_NAME'];
+        process.env['WSL_INTEROP'] = '/run/WSL/1_interop';
+        expect(clipboardUtils.isWSL()).toBe(true);
+      });
+
+      it('should return true when WSLENV is set on Linux', () => {
+        mockPlatform('linux');
+        delete process.env['WSL_DISTRO_NAME'];
+        process.env['WSLENV'] = 'WT_SESSION:WT_PROFILE_ID';
+        expect(clipboardUtils.isWSL()).toBe(true);
+      });
+
+      it('should return false on Linux when no WSL variables are set', () => {
+        mockPlatform('linux');
+        delete process.env['WSL_DISTRO_NAME'];
+        delete process.env['WSL_INTEROP'];
+        delete process.env['WSLENV'];
+        expect(clipboardUtils.isWSL()).toBe(false);
+      });
+
+      it('should return false on Windows even if WSL variables are set', () => {
+        mockPlatform('win32');
+        process.env['WSL_DISTRO_NAME'] = 'Ubuntu';
+        expect(clipboardUtils.isWSL()).toBe(false);
+      });
+
+      it('should return false on macOS even if WSL variables are set', () => {
+        mockPlatform('darwin');
+        process.env['WSL_DISTRO_NAME'] = 'Ubuntu';
+        expect(clipboardUtils.isWSL()).toBe(false);
+      });
+    });
+
+    describe('clipboardHasImage (WSL)', () => {
+      it('should return true when Windows clipboard contains an image', async () => {
+        vi.mocked(execSync).mockReturnValue(Buffer.from('')); // command -v succeeds for powershell.exe
+        const mockChild = createMockWslProcess('True\r\n', 0);
+        vi.mocked(spawn).mockReturnValue(mockChild as unknown as ChildProcess);
+
+        const result = await clipboardUtils.clipboardHasImage();
+        expect(result).toBe(true);
+        expect(spawn).toHaveBeenCalledWith(
+          expect.stringContaining('powershell.exe'),
+          expect.arrayContaining(['-NoProfile', '-NonInteractive']),
+          expect.objectContaining({ stdio: ['ignore', 'pipe', 'pipe'] }),
+        );
+      });
+
+      it('should return false when Windows clipboard does not contain an image and no Linux tool', async () => {
+        vi.mocked(execSync).mockReturnValue(Buffer.from(''));
+        const mockChild = createMockWslProcess('False\r\n', 0);
+        vi.mocked(spawn).mockReturnValue(mockChild as unknown as ChildProcess);
+
+        const result = await clipboardUtils.clipboardHasImage();
+        expect(result).toBe(false);
+      });
+
+      it('should fall back to Linux display server tool if PowerShell fails', async () => {
+        process.env['XDG_SESSION_TYPE'] = 'wayland';
+        vi.mocked(execSync).mockImplementation((cmd) => {
+          if (typeof cmd === 'string' && cmd.includes('powershell')) {
+            throw new Error('Not found');
+          }
+          return Buffer.from('');
+        });
+        vi.mocked(existsSync).mockReturnValue(false);
+        vi.mocked(spawnAsync).mockResolvedValueOnce({
+          stdout: 'image/png\ntext/plain',
+          stderr: '',
+        });
+
+        const result = await clipboardUtils.clipboardHasImage();
+        expect(result).toBe(true);
+        expect(spawnAsync).toHaveBeenCalledWith('wl-paste', ['--list-types']);
+      });
+    });
+
+    describe('saveClipboardImage (WSL)', () => {
+      it('should save image from base64 PowerShell output in WSL', async () => {
+        vi.mocked(execSync).mockReturnValue(Buffer.from(''));
+        const mockBase64 = Buffer.from('fake-image-bytes').toString('base64');
+        const mockChild = createMockWslProcess(`${mockBase64}\r\n`, 0);
+        vi.mocked(spawn).mockReturnValue(mockChild as unknown as ChildProcess);
+
+        const result = await clipboardUtils.saveClipboardImage(mockTargetDir);
+
+        expect(result).toMatch(/clipboard-\d+\.png$/);
+        expect(fs.writeFile).toHaveBeenCalledWith(
+          expect.stringMatching(/clipboard-\d+\.png$/),
+          Buffer.from(mockBase64, 'base64'),
+        );
+      });
+
+      it('should return null when PowerShell output is empty and no Linux tool', async () => {
+        vi.mocked(execSync).mockReturnValue(Buffer.from(''));
+        const mockChild = createMockWslProcess('', 0);
+        vi.mocked(spawn).mockReturnValue(mockChild as unknown as ChildProcess);
+
+        const result = await clipboardUtils.saveClipboardImage(mockTargetDir);
+        expect(result).toBe(null);
+      });
+
+      it('should clean up file and return false if fs.writeFile throws', async () => {
+        vi.mocked(execSync).mockReturnValue(Buffer.from(''));
+        const mockBase64 = Buffer.from('fake-image-bytes').toString('base64');
+        const mockChild = createMockWslProcess(mockBase64, 0);
+        vi.mocked(spawn).mockReturnValue(mockChild as unknown as ChildProcess);
+        vi.mocked(fs.writeFile).mockRejectedValueOnce(new Error('Disk full'));
+
+        const result = await clipboardUtils.saveClipboardImage(mockTargetDir);
+        expect(result).toBe(null);
+        expect(fs.unlink).toHaveBeenCalled();
+      });
     });
   });
 
